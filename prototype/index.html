@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Searchpod of MO</title>
+</head>
+
+<body>
+	<h1>Searchpod of MO</h1>
+	<search>
+		<label for="query"></label>
+		<input type="search" id="query"></input>
+
+	</search>
+	<output for="query">
+
+	</output>
+</body>
+
+<!-- You can either specifiy your links as plain text records: 
+URL
+LANG
+TITLE
+TAGS 					
+DESCRIPTION 	
+
+Separated by blank lines.
+Tags are comma separated.
+Description can be multiline.
+	-->
+<script type="plain/text" data-search-pod="personal" data-publisher="mo" data-updated="just-yesterday">
+https://subtractiv.com/blog/systems-of-communication-braille/
+en
+Systems of communication I: Braille - 29 August 2023
+braille,a11y
+As a designer who is invested in accessibility, 
+I started thinking to myself, how much do I actually know? 
+Have you ever wondered how braille is actually read? or 
+how people actually type in braille? 
+We may have seen the devices they use, 
+but do we know how the written language actually works?
+
+https://trace.umd.edu/peat/
+en
+Photosensitive Epilepsy Analysis Tool (PEAT)
+tool,a11y
+
+https://katapult-magazin.de/
+de
+Katapult Magazin
+maps,politics
+
+https://adactio.com/journal/20113
+en
+Read-only web apps 
+
+https://www.datagubbe.se/30yearcomp/
+en
+Decades of Fun: Computers Built to Last
+Amiga, Solar Punk
+
+https://www.joelonsoftware.com/2003/10/08/the-absolute-minimum-every-software-developer-absolutely-positively-must-know-about-unicode-and-character-sets-no-excuses/
+en
+The Absolute Minimum Every Software Developer Absolutely, Positively Must Know About Unicode and Character Sets (No Excuses!)
+Unicode, UTF-8
+
+https://go.dev/blog/strings
+en
+Strings, bytes, runes and characters in Go
+Unicode, Go, UTF-8
+
+https://slashbinbash.de/golf.html
+en
+Golf
+
+</script>
+<!-- or you can specifiy it as JSON -->
+<script type="application/json" data-search-pod="foreign">
+{
+    "producer": "frolleinschmidt",
+    "updated": "2024-06-01",
+    "urls": {
+       "https://www.stilldrinking.org/programming-sucks": {
+        "tags": ["programming", "bitter", "sotrue"],
+        "lang": "en",
+				"title": "Programming Sucks"
+      },
+      "https://docs.rs/clap/latest/clap/_tutorial": {
+        "tags": ["rust", "cli tooling", "cli libraries"],
+        "lang": "en",
+				"title": "clap Documentation "
+      },
+      "https://click.palletsprojects.com": {
+        "tags": ["python", "cli tooling", "cli libraries"],
+        "lang": "en",
+				"title": "click - CLIs in python",
+				"description": "Click is a Python package for creating beautiful command line interfaces in a composable way with as little code as necessary. It’s the Command Line Interface Creation Kit. It’s highly configurable but comes with sensible defaults out of the box."
+       },
+     "https://www.brooot.de/weizenbrote/tartine-italienne/": {
+        "tags": ["Brot", "Rezepte"],
+        "lang": "de",
+				"title":"Tartine Italienne",
+				"description": ""
+    }  
+  } 
+}
+</script>
+<!--
+	Or you can specifiy an external link, which will be searched for
+	script tags like the two above. Marked with an data-search-pod attribute
+<script type="text/html" src="./a-friends-pod.l" data-corpus="foreign" data-filter=""></script>
+-->
+<script type="application/javascript" src="./lunr.js"></script>
+<script type="application/javascript">
+	// Parse corpus Tags
+	const data = [...document.querySelectorAll("script[data-search-pod]")];
+
+	const bookmarks = [];
+
+	data.forEach(scriptTag => {
+		const text = scriptTag.innerText;
+		const mime = scriptTag.getAttribute("type");
+		switch (mime) {
+			case "plain/text":
+				parse_plain_text(text, bookmarks);
+				break;
+			case "application/json":
+				parse_json_data(text, bookmarks);
+				break;
+		}
+	})
+
+	function parse_plain_text(text, bookmarks) {
+		let data;
+		const lines = text.split(/\r?\n/)
+		let n = 0;
+		for (line of lines) {
+			if (line.trim() != "") {
+				data = data ?? []; //ensure new data bag
+				data.push(line);
+			} else {
+				if (!data) continue;
+				const [url, lang, title, tags, ...descriptions] = data;
+				bookmarks.push({
+					id: bookmarks.length,
+					url,
+					lang,
+					title,
+					tags: tags?.trim()?.split(","),
+					description: descriptions?.join(" ")
+				})
+				data = null; // only once
+			}
+		}
+	}
+
+	function parse_json_data(text, bookmarks) {
+		// todo
+		const jsonData = JSON.parse(text);
+		const producer = jsonData.producer;
+		const updated = jsonData.updated;
+		Object
+			.entries(jsonData.urls)
+			.forEach(([url, meta]) => {
+				console.log("key", meta);
+				bookmarks.push(
+					{
+						id: bookmarks.length,
+						url,
+						lang: meta.lang,
+						title: meta.title,
+						tags: meta.tags,
+						description: meta.description
+					}
+				)
+			})
+	}
+
+	// Create index
+	const idx = lunr(function () {
+		this.field("id");
+		this.field("url");
+		this.field("lang");
+		this.field("title");
+		this.field("tags");
+		this.field("description");
+
+		bookmarks.forEach(bookmark => this.add(bookmark));
+	})
+
+	// Interactive search
+	const search_input = document.querySelector("input");
+
+	if (search_input) {
+		search_input.addEventListener("input", (e) => {
+			const input = e.target;
+			const query = `*${input.value}*`;
+			const result = idx.search(query);
+			const output_element = document.querySelector("output");
+			output_element.innerHTML = "";
+			result.forEach(hit => {
+				const {url, title, tags, description} = bookmarks[hit.ref]
+				const render = `<p>
+					<a href="${url}">${title}</a>
+					<span>${description ?? ""}</span>
+					</p>`
+				output_element.insertAdjacentHTML("afterbegin", render);
+			})
+		})
+	}
+
+</script>
+
+</html>
