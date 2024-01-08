@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>MOs Pod B</title>
+	<style>
+		search-pod-entry {
+			display: none;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>Searchpod of Mo (B)</h1>
+	<search>
+		<label for="query">
+			<input type="search" id="query">
+		</label>
+	</search>
+	<noscript>
+		<style>
+			search-pod-entry {
+				display: block;
+			}
+		</style>
+	</noscript>
+	<div id="search-pod-data">
+		<search-pod-entry>
+			<a hreflang="en" href="https://subtractiv.com/blog/systems-of-communication-braille/">
+				Systems of communication I: Braille - 29 August 2023
+			</a>
+			<p>
+			<ul>
+				<li>braille</li>
+				<li>accessibility</li>
+			</ul>
+			<span>
+				As a designer who is invested in accessibility,
+				I started thinking to myself, how much do I actually know?
+				Have you ever wondered how braille is actually read? or
+				how people actually type in braille?
+				We may have seen the devices they use,
+				but do we know how the written language actually works?
+			</span>
+			</p>
+		</search-pod-entry>
+	</div>
+
+</body>
+<script type="application/javascript" src="../lunr.js"></script>
+<script>
+
+	let index_handle;
+	const idx = lunr(function () {
+		this.field('title')
+		this.field('body')
+		index_handle = this;
+	})
+
+
+	class SearchPodEntry extends HTMLElement {
+		constructor() {
+			super()
+			console.log("constructor");
+		}
+		connectedCallback() {
+			// It's not really connect but we take it.
+			console.log("connect", this.children);
+			const data_id = (Math.random() + 1).toString(36).substring(2);
+			this.setAttribute("data-id",data_id);
+
+			const $a = this.querySelector('a');
+			const $description
+			index_handle.add({
+				id:data_id,
+				title: $a.contentText,
+				lang: $a.getAttribute("hreflang"),
+				url: $a.getAttribute("href"),
+				
+
+
+			})
+		}
+		disconnectCallback() {
+			console.log("disconnect")
+		}
+	}
+	customElements.define("search-pod-entry", SearchPodEntry);
+
+
+	document.querySelector("search-pod-entry").style.display = "block";
+</script>
+
+</html>
